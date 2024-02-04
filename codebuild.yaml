@@ -15,5 +15,5 @@ phases:
   post_build:
     commands:
       - echo Build completed on `date`
-      - echo Pushing the Docker image to the repo....
+      - echo Pushing the Docker image to the repo
       - docker push 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:latest
