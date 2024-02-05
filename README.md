@@ -5,9 +5,20 @@ For this project, you are a DevOps engineer who will be collaborating with a tea
 
 ## Getting Started
 
+### Deliverables
+1. `Dockerfile`
+2. Screenshot of AWS CodeBuild pipeline
+3. Screenshot of AWS ECR repository for the application's repository
+4. Screenshot of `kubectl get svc`
+5. Screenshot of `kubectl get pods`
+6. Screenshot of `kubectl describe svc <DATABASE_SERVICE_NAME>`
+7. Screenshot of `kubectl describe deployment <SERVICE_NAME>`
+8. All Kubernetes config files used for deployment (ie YAML files)
+9. Screenshot of AWS CloudWatch logs for the application
+
 ### Dependencies
 #### Local Environment
-1. Python Environment - run Python 3.6+ applications and install Python dependencies via `pip`
+1. Python Environment - run Python 3.10+ applications and install Python dependencies via `pip`
 2. Docker CLI - build and run Docker images locally
 3. `kubectl` - run commands against a Kubernetes cluster
 4. `helm` - apply Helm Charts to a Kubernetes cluster
@@ -20,23 +31,20 @@ For this project, you are a DevOps engineer who will be collaborating with a tea
 5. GitHub - pull and clone code
 
 ### Setup
-#### 1. Configure a Database
-Set up a Postgres database using a Helm Chart.
+The below sequence was followed to set up the project
+1. Created a EKS Cluster named postgresql_EKS using the below commands
+   eksctl create cluster --name postgresql-EKS --region us-east-1  --vpc-private-subnets subnet-0e8b6463ebfb4b527,subnet-0e9b27ca2bc123027 -P
 
-1. Set up Bitnami Repo
-```bash
-helm repo add <REPO_NAME> https://charts.bitnami.com/bitnami
-```
+2. Set up Bitnami Repo
+helm repo add bitnami https://charts.bitnami.com/bitnami
 
 2. Install PostgreSQL Helm Chart
-```
-helm install <SERVICE_NAME> <REPO_NAME>/postgresql
-```
+helm install project3-eks bitnami/postgresql
 
-This should set up a Postgre deployment at `<SERVICE_NAME>-postgresql.default.svc.cluster.local` in your Kubernetes cluster. You can verify it by running `kubectl svc`
+This should set up a Postgre deployment at project3-eks-postgresql.default.svc.cluster.local 
 
 By default, it will create a username `postgres`. The password can be retrieved with the following command:
-```bash
+
 export POSTGRES_PASSWORD=$(kubectl get secret --namespace default <SERVICE_NAME>-postgresql -o jsonpath="{.data.postgres-password}" | base64 -d)
 
 echo $POSTGRES_PASSWORD
@@ -49,51 +57,65 @@ The database is accessible within the cluster. This means that when you will hav
 
 * Connecting Via Port Forwarding
 ```bash
-kubectl port-forward --namespace default svc/<SERVICE_NAME>-postgresql 5432:5432 &
+kubectl port-forward --namespace default svc/project3-eks-postgresql 5432:5432 &
     PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -d postgres -p 5432
 ```
 
 * Connecting Via a Pod
 ```bash
-kubectl exec -it <POD_NAME> bash
-PGPASSWORD="<PASSWORD HERE>" psql postgres://postgres@<SERVICE_NAME>:5432/postgres -c <COMMAND_HERE>
+kubectl exec -it project3-eks-postgresql-0 bash
+PGPASSWORD="<PASSWORD HERE>" psql postgres://postgres@project3-eks-postgresql:5432/postgres -c <COMMAND_HERE>
 ```
 
 4. Run Seed Files
 We will need to run the seed files in `db/` in order to create the tables and populate them with data.
 
-```bash
-kubectl port-forward --namespace default svc/<SERVICE_NAME>-postgresql 5432:5432 &
-    PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -d postgres -p 5432 < <FILE_NAME.sql>
-```
+a.The below command will create the users and tokens tables and creates the required indices.
 
-### 2. Running the Analytics Application Locally
-In the `analytics/` directory:
+kubectl port-forward --namespace default svc/project3-eks-postgresql 5432:5432 &
+    PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -d postgres -p 5432 < /workspace/db/1_create_tables.sql
+b. The next step is to insert the users into the user table:
+kubectl port-forward --namespace default svc/project3-eks-postgresql 5432:5432 &
+    PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -d postgres -p 5432 < /workspace/db/2_seed_users.sql
+c. the last step in the data insertion is to run the below command to insert the tokens into the tokens table:
+kubectl port-forward --namespace default svc/project3-eks-postgresql 5432:5432 &
+    PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -d postgres -p 5432 < /workspace/db/3_seed_tokens.sql
 
-1. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-2. Run the application (see below regarding environment variables)
-```bash
-<ENV_VARS> python app.py
-```
+Deployment Steps:
+1. Running CodeBuild:
+ To use Code build, We can create a .yaml file (codebuild.yaml), which will help to create the repo and push the required images into the Code Repository:
 
-There are multiple ways to set environment variables in a command. They can be set per session by running `export KEY=VAL` in the command line or they can be prepended into your command.
+ version: 0.2
 
-* `DB_USERNAME`
-* `DB_PASSWORD`
-* `DB_HOST` (defaults to `127.0.0.1`)
-* `DB_PORT` (defaults to `5432`)
-* `DB_NAME` (defaults to `postgres`)
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
+      - cd analytics
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t analytics:latest .
+      - docker tag analytics:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/analytics:latest
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/analytics:latest
 
-If we set the environment variables by prepending them, it would look like the following:
-```bash
-DB_USERNAME=username_here DB_PASSWORD=password_here python app.py
-```
-The benefit here is that it's explicitly set. However, note that the `DB_PASSWORD` value is now recorded in the session's history in plaintext. There are several ways to work around this including setting environment variables in a file and sourcing them in a terminal session.
+2. Running the Analytics Application Locally
+In the `analytics/` directory, we have got files to create the Deployment and the Services. The Config map and secret yaml files ocntains the Env details related to DB Username and DB Password.
+Application can be created using the below commands (create the deployments and the services):
+
+kubectl apply -f /workspace/analytics/deployment/deployment.yaml
+
+kubectl apply -f /workspace/analytics/deployment/service.yaml
 
 3. Verifying The Application
+ export BASE_URL=$(kubectl get services analytics --output jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
 * Generate report for check-ins grouped by dates
 `curl <BASE_URL>/api/reports/daily_usage`
 
@@ -107,17 +129,7 @@ The benefit here is that it's explicitly set. However, note that the `DB_PASSWOR
 4. Create a service and deployment using Kubernetes configuration files to deploy the application
 5. Check AWS CloudWatch for application logs
 
-### Deliverables
-1. `Dockerfile`
-2. Screenshot of AWS CodeBuild pipeline
-3. Screenshot of AWS ECR repository for the application's repository
-4. Screenshot of `kubectl get svc`
-5. Screenshot of `kubectl get pods`
-6. Screenshot of `kubectl describe svc <DATABASE_SERVICE_NAME>`
-7. Screenshot of `kubectl describe deployment <SERVICE_NAME>`
-8. All Kubernetes config files used for deployment (ie YAML files)
-9. Screenshot of AWS CloudWatch logs for the application
-10. `README.md` file in your solution that serves as documentation for your user to detail how your deployment process works and how the user can deploy changes. The details should not simply rehash what you have done on a step by step basis. Instead, it should help an experienced software developer understand the technologies and tools in the build and deploy process as well as provide them insight into how they would release new builds.
+
 
 
 ### Stand Out Suggestions
@@ -125,7 +137,3 @@ Please provide up to 3 sentences for each suggestion. Additional content in your
 1. Specify reasonable Memory and CPU allocation in the Kubernetes deployment configuration
 2. In your README, specify what AWS instance type would be best used for the application? Why?
 3. In your README, provide your thoughts on how we can save on costs?
-
-### Best Practices
-* Dockerfile uses an appropriate base image for the application being deployed. Complex commands in the Dockerfile include a comment describing what it is doing.
-* The Docker images use semantic versioning with three numbers separated by dots, e.g. `1.2.1` and  versioning is visible in the  screenshot. See [Semantic Versioning](https://semver.org/) for more details.

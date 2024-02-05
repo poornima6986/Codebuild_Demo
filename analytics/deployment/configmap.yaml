@@ -1,8 +1,9 @@
-apiVersion: apps/v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: analytics-config
-  data:
-    APP_PORT: "5000"
-    DB_HOST: project3-eks-postgresql.default.svc.cluster.local
-    DB_USERNAME: postgres
+  name: app-config
+data:
+  APP_PORT: "5000"
+  DB_HOST: project3-eks-postgresql.default.svc.cluster.local
+  DB_USERNAME: postgres
+  DB_PASSWORD: 7n9v2IqWdj

@@ -1,6 +1,6 @@
-FROM python:3.10-slim-buster
+FROM python:3.6
 
-USER root
+ENV FLASK_RUN_HOST=0.0.0.0
 
 WORKDIR /src
 

@@ -16,12 +16,10 @@ spec:
     spec:
       containers:
         - name: analytics
-          image: 823809779962.dkr.ecr.us-east-1.amazonaws.com/coworking-checkin:latest
+          image: 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:0.0.2
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
-                name: analytics-config
-            - secretRef:
-                name: analytics-secret
+                name: app-config
           ports:
             - containerPort: 5000
