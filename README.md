@@ -48,7 +48,6 @@ By default, it will create a username `postgres`. The password can be retrieved 
 export POSTGRES_PASSWORD=$(kubectl get secret --namespace default <SERVICE_NAME>-postgresql -o jsonpath="{.data.postgres-password}" | base64 -d)
 
 echo $POSTGRES_PASSWORD
-```
 
 <sup><sub>* The instructions are adapted from [Bitnami's PostgreSQL Helm Chart](https://artifacthub.io/packages/helm/bitnami/postgresql).</sub></sup>
 
@@ -117,23 +116,11 @@ kubectl apply -f /workspace/analytics/deployment/service.yaml
  export BASE_URL=$(kubectl get services analytics --output jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 * Generate report for check-ins grouped by dates
-`curl <BASE_URL>/api/reports/daily_usage`
+`curl $BASE_URL/api/reports/daily_usage`
 
 * Generate report for check-ins grouped by users
-`curl <BASE_URL>/api/reports/user_visits`
+`curl $BASE_URL/api/reports/user_visits`
 
-## Project Instructions
-1. Set up a Postgres database with a Helm Chart
-2. Create a `Dockerfile` for the Python application. Use a base image that is Python-based.
-3. Write a simple build pipeline with AWS CodeBuild to build and push a Docker image into AWS ECR
-4. Create a service and deployment using Kubernetes configuration files to deploy the application
-5. Check AWS CloudWatch for application logs
-
-
-
-
-### Stand Out Suggestions
-Please provide up to 3 sentences for each suggestion. Additional content in your submission from the standout suggestions do _not_ impact the length of your total submission.
-1. Specify reasonable Memory and CPU allocation in the Kubernetes deployment configuration
-2. In your README, specify what AWS instance type would be best used for the application? Why?
-3. In your README, provide your thoughts on how we can save on costs?
+Other Suggestions:
+1. AWS instance that would best suit the application is m5 instacens, as they provide a balance of compute, memory, and network resources and the m5.large instance provides aroun 2vCPU and 8 GiB memory w hich is more than sufficient for the application.
+2. We can also look to introduce HPA to save additional costs, which will automatically updates thw rokload to match the demand.
