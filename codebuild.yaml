@@ -10,10 +10,10 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -t analytics:latest .
-      - docker tag analytics:latest 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:latest
+      - docker build -t analytics:0.0.1 .
+      - docker tag analytics:0.0.1 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:0.0.1
   post_build:
     commands:
       - echo Build completed on `date`
       - echo Pushing the Docker image into the repo
-      - docker push 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:latest
+      - docker push 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:0.0.1
