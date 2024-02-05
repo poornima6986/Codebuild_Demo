@@ -9,7 +9,7 @@ phases:
   build:
     commands:
       - echo Build started on `date`
-      - echo Building the Docker image...
+      - echo Building the Docker image withe semantic versioning...
       - docker build -t analytics:0.0.1 .
       - docker tag analytics:0.0.1 823809779962.dkr.ecr.us-east-1.amazonaws.com/analytics:0.0.1
   post_build:
